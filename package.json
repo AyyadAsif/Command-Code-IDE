@@ -1,0 +1,78 @@
+{
+  "name": "command-code-ide",
+  "productName": "Command Code IDE",
+  "version": "1.0.0",
+  "description": "Windows IDE shell around the Command Code CLI agent.",
+  "author": "Command Code IDE",
+  "license": "MIT",
+  "main": "src/main/index.js",
+  "scripts": {
+    "start": "electron .",
+    "preview": "node src/main/server.js",
+    "test": "node --test tests/*.test.js",
+    "build:win": "electron-builder --win nsis portable --x64",
+    "build:win:dir": "electron-builder --win dir --x64"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "monaco-editor": "^0.52.2"
+  },
+  "devDependencies": {
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "ai.commandcode.ide",
+    "productName": "Command Code IDE",
+    "copyright": "Copyright © 2026",
+    "artifactName": "${productName}-${os}-${arch}-${version}.${ext}",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*",
+      "assets/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "assets",
+        "to": "assets"
+      }
+    ],
+    "win": {
+      "icon": "assets/icon.png",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Command Code IDE",
+      "uninstallDisplayName": "Command Code IDE",
+      "artifactName": "CommandCodeIDE-Setup-x64.exe"
+    },
+    "portable": {
+      "artifactName": "CommandCodeIDE-Portable.exe"
+    },
+    "compression": "maximum",
+    "removePackageScripts": true
+  }
+}
