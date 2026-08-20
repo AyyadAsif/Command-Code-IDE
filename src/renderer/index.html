@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="midnight">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' blob: data:; connect-src 'self' ws: wss: http: https:;" />
+  <title>Command Code IDE</title>
+  <link rel="stylesheet" href="styles/themes.css" />
+  <link rel="stylesheet" href="styles/app.css" />
+  <link rel="icon" href="/assets/icon.png" />
+</head>
+<body>
+  <div id="app">
+    <header class="titlebar">
+      <div class="brand"><img src="icon.png" alt="" /><span>Command Code IDE</span></div>
+      <div class="ws" id="wsLabel">No folder open</div>
+      <div class="spacer"></div>
+      <select class="pill" id="modelSelect" title="Model"></select>
+      <button class="pill" id="modeBtn" title="Permission mode (Shift+Tab)">auto-accept</button>
+      <span class="pill" id="enginePill">Starting…</span>
+      <button class="icon-btn" id="paletteBtn" title="Command palette">⌘</button>
+      <button class="icon-btn" id="settingsBtn" title="Settings">⚙</button>
+    </header>
+    <div class="workspace" id="workspace">
+      <aside class="panel explorer" id="explorerPanel">
+        <div class="panel-h">
+          <span>Explorer</span>
+          <div class="actions">
+            <button class="icon-btn" id="newFileBtn" title="New file">＋</button>
+            <button class="icon-btn" id="refreshTreeBtn" title="Refresh">↻</button>
+          </div>
+        </div>
+        <div class="tree" id="tree"></div>
+      </aside>
+      <section class="panel editor-col">
+        <div class="tabs" id="tabs"></div>
+        <div id="editor"></div>
+        <div class="editor-empty hidden" id="editorEmpty">Open a file from the explorer, or press Ctrl+P</div>
+        <div class="diff-view hidden" id="diffView"></div>
+        <div class="drawer hidden" id="outputDrawer">
+          <div class="head"><span>Command Code output</span><button class="icon-btn" id="closeOutput">✕</button></div>
+          <pre id="outputLog"></pre>
+        </div>
+        <div class="drawer hidden" id="terminalDrawer">
+          <div class="head"><span>Terminal</span><button class="icon-btn" id="closeTerm">✕</button></div>
+          <pre id="termOut"></pre>
+          <input id="termIn" placeholder="Run a command in the workspace…" style="margin:6px 10px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;padding:6px 8px;" />
+        </div>
+        <div class="drawer hidden" id="problemsDrawer">
+          <div class="head"><span>Problems</span><button class="icon-btn" id="closeProblems">✕</button></div>
+          <div class="problems" id="problems"></div>
+        </div>
+      </section>
+      <aside class="panel chat" id="chatPanel">
+        <div class="panel-h">
+          <span>Command Code</span>
+          <div class="actions">
+            <button class="text-btn" id="newChatBtn">New Chat</button>
+            <button class="icon-btn" id="forkBtn" title="Fork">⑂</button>
+          </div>
+        </div>
+        <input id="sessionSearch" placeholder="Search sessions" style="margin:6px 8px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;padding:6px 8px;" />
+        <div class="chat-sessions" id="sessionList"></div>
+        <div class="messages" id="messages"></div>
+        <div class="composer">
+          <div class="chips" id="chips"></div>
+          <div class="composer-wrap">
+            <div class="suggest hidden" id="suggest"></div>
+            <textarea id="prompt" placeholder="Ask Command Code…  Enter to send, Shift+Enter newline, / commands, @ files"></textarea>
+          </div>
+          <div class="composer-bar">
+            <span class="usage" id="contextHint"></span>
+            <span class="grow"></span>
+            <button class="text-btn danger hidden" id="stopBtn">Stop</button>
+            <button class="text-btn primary" id="sendBtn">Send</button>
+          </div>
+        </div>
+      </aside>
+    </div>
+    <footer class="statusbar">
+      <span><i class="dot" id="dot"></i> <span id="statusText">Starting…</span></span>
+      <span id="gitText"></span>
+      <span id="permText"></span>
+      <span class="grow"></span>
+      <span id="busyText"></span>
+      <button class="icon-btn" id="toggleExplorer">Files</button>
+      <button class="icon-btn" id="toggleChat">Chat</button>
+      <button class="icon-btn" id="toggleOutput">Log</button>
+      <button class="icon-btn" id="toggleTerm">Term</button>
+    </footer>
+  </div>
+
+  <div class="welcome" id="welcome">
+    <div class="welcome-card">
+      <h1>Command Code IDE</h1>
+      <p>A coding workspace around the Command Code engine you already have installed. Open a folder to begin.</p>
+      <div class="welcome-actions">
+        <button class="text-btn primary" id="openFolderBtn">Open Folder</button>
+        <button class="text-btn" id="refreshEngineBtn">Detect Command Code</button>
+      </div>
+      <div class="recent" id="recent"></div>
+      <div class="setup" id="setupBox">Looking for Command Code…</div>
+    </div>
+  </div>
+
+  <div class="modal-bg hidden" id="settingsModal">
+    <div class="modal">
+      <h2>Settings</h2>
+      <div class="field"><label>Theme</label>
+        <select id="setTheme">
+          <option value="midnight">Midnight</option>
+          <option value="futuristic">Futuristic</option>
+          <option value="retro">Retro</option>
+          <option value="graphite">Graphite</option>
+          <option value="light">Light</option>
+        </select>
+      </div>
+      <div class="field"><label>Editor font size</label><input id="setFont" type="number" min="10" max="22" /></div>
+      <div class="field"><label>Tab size</label><input id="setTab" type="number" min="1" max="8" /></div>
+      <div class="field"><label><input type="checkbox" id="setWrap" /> Word wrap</label></div>
+      <div class="field"><label><input type="checkbox" id="setMinimap" /> Minimap</label></div>
+      <div class="field"><label><input type="checkbox" id="setAutosave" /> Autosave</label></div>
+      <div class="field"><label><input type="checkbox" id="setCompact" /> Compact tool cards</label></div>
+      <div class="field"><label>Permission mode</label>
+        <select id="setPerm">
+          <option value="auto-accept">auto-accept (recommended for coding)</option>
+          <option value="plan">plan (read-only)</option>
+          <option value="default">default (headless denies writes)</option>
+          <option value="dont-ask">dont-ask</option>
+          <option value="bypass">bypass / --yolo (dangerous)</option>
+        </select>
+      </div>
+      <div class="field"><label><input type="checkbox" id="setYolo" /> Allow bypass (--yolo)</label></div>
+      <div class="field"><label><input type="checkbox" id="setVerbose" /> Verbose CLI log</label></div>
+      <div class="field"><label>Custom Command Code path</label><input id="setBin" placeholder="optional" /></div>
+      <div class="field"><label>Effort</label>
+        <select id="setEffort">
+          <option value="">default</option>
+          <option>low</option><option>medium</option><option>high</option>
+        </select>
+      </div>
+      <p class="usage" id="engineInfo"></p>
+      <div class="welcome-actions">
+        <button class="text-btn primary" id="saveSettings">Save</button>
+        <button class="text-btn" id="closeSettings">Close</button>
+        <button class="text-btn" id="openLogs">Open logs folder</button>
+        <button class="text-btn" id="loginBtn">Command Code Login</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="palette hidden" id="palette">
+    <input id="paletteInput" placeholder="Type a command…" />
+    <div id="paletteList"></div>
+  </div>
+  <div class="ctx-menu hidden" id="ctx"></div>
+
+  <script src="js/api.js"></script>
+  <script src="js/markdown.js"></script>
+  <script src="js/editor.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

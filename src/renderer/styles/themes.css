@@ -1,0 +1,114 @@
+:root, [data-theme="midnight"] {
+  --bg: #0b1220;
+  --bg-elev: #111827;
+  --bg-hover: #1a2436;
+  --bg-input: #0e1726;
+  --border: #1f2a3d;
+  --text: #e6edf7;
+  --muted: #8b9bb4;
+  --faint: #5b6b84;
+  --accent: #3ee0c5;
+  --accent-2: #6ea8ff;
+  --danger: #ff6b7a;
+  --warn: #f5c15c;
+  --ok: #3ee0c5;
+  --chip: #182233;
+  --shadow: 0 12px 40px rgba(0,0,0,.35);
+  --editor-bg: #0d1524;
+  --user-bg: #18263c;
+  --ai-bg: #121b2b;
+  --scrollbar: #243049;
+  --title: #0a101c;
+}
+
+[data-theme="futuristic"] {
+  --bg: #070b14;
+  --bg-elev: #0d1526;
+  --bg-hover: #152238;
+  --bg-input: #0a1220;
+  --border: #1c3a55;
+  --text: #e8f6ff;
+  --muted: #7fb0d4;
+  --faint: #4d7a9a;
+  --accent: #4df0ff;
+  --accent-2: #7c5cff;
+  --danger: #ff5d8f;
+  --warn: #ffe08a;
+  --ok: #4dffc3;
+  --chip: #102033;
+  --shadow: 0 12px 40px rgba(0,20,40,.45);
+  --editor-bg: #081018;
+  --user-bg: #10253a;
+  --ai-bg: #0c1828;
+  --scrollbar: #1a3a52;
+  --title: #05080f;
+}
+
+[data-theme="retro"] {
+  --bg: #1c140e;
+  --bg-elev: #261b13;
+  --bg-hover: #332418;
+  --bg-input: #18110c;
+  --border: #4a3220;
+  --text: #f3e6c8;
+  --muted: #c4a574;
+  --faint: #8a6a45;
+  --accent: #ffb347;
+  --accent-2: #e07a3d;
+  --danger: #e85d4c;
+  --warn: #e6c35c;
+  --ok: #9cba6a;
+  --chip: #2c1e14;
+  --shadow: 0 12px 40px rgba(20,10,0,.4);
+  --editor-bg: #16100b;
+  --user-bg: #2a1d14;
+  --ai-bg: #1f160f;
+  --scrollbar: #3a2818;
+  --title: #140e0a;
+}
+
+[data-theme="graphite"] {
+  --bg: #1c1d21;
+  --bg-elev: #25262c;
+  --bg-hover: #2e3038;
+  --bg-input: #16171b;
+  --border: #3a3c44;
+  --text: #ececec;
+  --muted: #9aa0aa;
+  --faint: #6d7380;
+  --accent: #c8cdd6;
+  --accent-2: #8ab4f8;
+  --danger: #ef7a7a;
+  --warn: #e0c36a;
+  --ok: #8fd19e;
+  --chip: #2a2c32;
+  --shadow: 0 12px 40px rgba(0,0,0,.4);
+  --editor-bg: #18191d;
+  --user-bg: #2a2c33;
+  --ai-bg: #22232a;
+  --scrollbar: #3a3c44;
+  --title: #141518;
+}
+
+[data-theme="light"] {
+  --bg: #f4f6fa;
+  --bg-elev: #ffffff;
+  --bg-hover: #e8edf5;
+  --bg-input: #ffffff;
+  --border: #d5dce8;
+  --text: #1b2433;
+  --muted: #5c6b80;
+  --faint: #8a97aa;
+  --accent: #0f8f7f;
+  --accent-2: #2b6cdf;
+  --danger: #d23c4e;
+  --warn: #c48912;
+  --ok: #0f8f7f;
+  --chip: #e8eef7;
+  --shadow: 0 12px 40px rgba(20,30,50,.12);
+  --editor-bg: #ffffff;
+  --user-bg: #e8f0ff;
+  --ai-bg: #f7f8fb;
+  --scrollbar: #c9d3e2;
+  --title: #eef1f6;
+}
