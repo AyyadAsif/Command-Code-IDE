@@ -7,13 +7,30 @@ This application does **not** ship a second AI agent. It starts your installed `
 ## Install (Windows)
 
 1. Install [Command Code](https://commandcode.ai/docs/quickstart) if you have not: `npm i -g command-code`
-2. Download **CommandCodeIDE-Setup-x64.exe** from [Releases](https://github.com/AyyadAsif/Command-Code-IDE/releases)
-3. Run the installer (Start Menu + optional desktop shortcut)
+2. Get the installer **CommandCodeIDE-Setup-x64.exe** (see below) and double-click it
+3. Follow the installer (Start Menu + optional desktop shortcut)
 4. Launch **Command Code IDE**
 
-Portable build: **CommandCodeIDE-Portable.exe** (no installer).
+Portable (no install): **CommandCodeIDE-Portable.exe**.
 
-To produce those artifacts, run `npm run build:win` on a Windows x64 machine (or GitHub Actions using `scripts/windows-build.yml`).
+**How to get the `.exe`:**
+
+- **Build it yourself (2 commands)** — works on any Windows x64 machine, no admin /
+  Developer Mode required (fixed in `electron-builder` 26):
+  ```powershell
+  npm install
+  npm run build:win
+  ```
+  Outputs `dist\CommandCodeIDE-Setup-x64.exe` and `dist\CommandCodeIDE-Portable.exe`.
+
+- **Automatic GitHub-built releases (set up once)** — copy the ready-made workflow
+  `scripts\windows-build.yml` to `.github\workflows\build-windows.yml` and push it.
+  From then on every `v*` tag builds the installer on GitHub and attaches it to a
+  [Release](https://github.com/AyyadAsif/Command-Code-IDE/releases), so you can just
+  download `CommandCodeIDE-Setup-x64.exe`.
+
+> The installer is not code-signed (it uses no certificate), so Windows SmartScreen
+> may show a prompt. Click **More info → Run anyway**.
 
 ## First launch
 
@@ -50,6 +67,8 @@ Midnight, Futuristic, Retro, Graphite, Light — Settings or the command palette
 
 | Symptom | What to try |
 | --- | --- |
+| `Electron failed to install correctly` (dev only) | The Electron binary did not download. Delete `node_modules/electron`, make sure `npm config get ignore-scripts` is `false`, then `npm install` again (or run `node node_modules/electron/install.js`). |
+| Build fails with `Cannot create symbolic link` (winCodeSign) | Old `electron-builder` 24/25 bug on Windows without Developer Mode. This project now pins `electron-builder` 26.x, which fixes it — delete `node_modules` + `package-lock.json` and reinstall if you still see it. |
 | Command Code missing | `npm i -g command-code`, then Detect. On native Windows the alias is `cmdc`, not `cmd`. |
 | Sign in required | Settings → Command Code Login |
 | Writes never happen | You are in **plan** or **default** (headless default denies writes). Switch to **auto-accept**. |
@@ -61,12 +80,13 @@ Logs: **Help → Open Logs Folder** (`%USERPROFILE%\.commandcode-ide\logs`). Sec
 ## Develop from source
 
 ```bash
+npm install
 npm test
 npm run preview   # http://localhost:4173
 npm start         # Electron (after npm install)
 ```
 
-Windows installer from a Windows machine or CI:
+Windows installer from any Windows x64 machine (no admin / no Developer Mode required):
 
 ```bash
 npm install
@@ -77,6 +97,10 @@ Outputs:
 
 - `dist/CommandCodeIDE-Setup-x64.exe`
 - `dist/CommandCodeIDE-Portable.exe`
+
+A ready-to-use GitHub Actions workflow is included at `scripts/windows-build.yml`.
+To enable automatic builds + tagged Releases, copy it to
+`.github/workflows/build-windows.yml` and push.
 
 ## Support
 
