@@ -35,7 +35,7 @@ See `ARCHITECTURE_DECISION.md`. Electron vanilla + Monaco. Adapter isolation.
 
 ## Tests
 
-Automated suite in `tests/`. Real Command Code E2E requires the user’s installed CLI and account.
+Automated suite in `tests/`: **22/22 passing** (`node --test`). Real Command Code E2E requires the user’s installed CLI and account. GitHub is the source of truth on branch `arena/01a01e1f-command-code-ide`.
 
 ## Remaining risks
 

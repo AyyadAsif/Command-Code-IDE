@@ -13,7 +13,7 @@ This application does **not** ship a second AI agent. It starts your installed `
 
 Portable build: **CommandCodeIDE-Portable.exe** (no installer).
 
-GitHub Actions on `windows-latest` produces both artifacts whenever this branch is pushed.
+To produce those artifacts, run `npm run build:win` on a Windows x64 machine (or GitHub Actions using `scripts/windows-build.yml`).
 
 ## First launch
 
