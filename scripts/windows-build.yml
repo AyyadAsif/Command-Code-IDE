@@ -1,36 +1,99 @@
-name: Windows build
+# Ready-to-use GitHub Actions workflow.
+#
+# GitHub only runs workflows from the `.github/workflows/` directory, so to enable
+# automatic Windows builds + tagged Releases, copy this file there and push:
+#
+#   copy scripts\windows-build.yml .github\workflows\build-windows.yml
+#   git add .github\workflows\build-windows.yml && git commit -m "Enable CI" && git push
+#
+# After that, every push to `main` builds the installer, and pushing a tag like
+# `git tag v1.0.0 && git push origin v1.0.0` publishes a GitHub Release with the
+# `CommandCodeIDE-Setup-x64.exe` attached.
+#
+# (This file lives under scripts/ only because a bot account without the
+# `workflows` permission cannot write directly into `.github/workflows/`.)
+
+name: Build Windows installer
 
 on:
   push:
-    branches: ['**']
-  pull_request:
+    branches: [main]
+    tags: ['v*']
   workflow_dispatch:
 
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-      - run: npm test
+permissions:
+  contents: write
 
-  windows:
-    needs: test
+jobs:
+  build:
+    name: Build (Windows x64)
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - run: npm install
-      - run: npm test
-      - run: npm run build:win
-      - uses: actions/upload-artifact@v4
+          cache: npm
+
+      - name: Enable Windows Developer Mode (symlinks)
+        shell: pwsh
+        run: |
+          reg add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock" /t REG_DWORD /f /v AllowDevelopmentWithoutDevLicense /d 1 | Out-Null
+
+      - name: Install dependencies
+        env:
+          # electron-builder downloads its own copy of the Electron binary during
+          # packaging, so the npm postinstall download isn't needed here.
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+        run: npm ci
+
+      - name: Test
+        run: npm test
+
+      - name: Build installer and portable exe
+        run: npm run build:win
+
+      - name: Generate SHA-256 checksums
+        shell: pwsh
+        run: |
+          Get-FileHash dist\*.exe -Algorithm SHA256 |
+            ForEach-Object { "{0}  {1}" -f $_.Hash.ToLower(), (Split-Path $_.Path -Leaf) } |
+            Set-Content dist\SHA256SUMS.txt
+          Get-Content dist\SHA256SUMS.txt
+
+      - name: Upload installer artifacts
+        uses: actions/upload-artifact@v4
         with:
           name: windows-installers
           path: |
             dist/CommandCodeIDE-Setup-x64.exe
             dist/CommandCodeIDE-Portable.exe
-          if-no-files-found: warn
+            dist/SHA256SUMS.txt
+          if-no-files-found: error
+
+  release:
+    name: Publish GitHub Release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download installer artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-installers
+          path: dist
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ github.ref_name }}" \
+            dist/CommandCodeIDE-Setup-x64.exe \
+            dist/CommandCodeIDE-Portable.exe \
+            dist/SHA256SUMS.txt \
+            --repo "${{ github.repository }}" \
+            --title "Command Code IDE ${{ github.ref_name }}" \
+            --notes "Windows x64 installer and portable build. Download **CommandCodeIDE-Setup-x64.exe** to install."
