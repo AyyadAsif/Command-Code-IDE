@@ -11,7 +11,8 @@ describe('argv builder', () => {
     assert.ok(a.includes('--output-format'));
     assert.ok(a.includes('json'));
     assert.ok(a.includes('--skip-onboarding'));
-    assert.equal(a[a.length - 1], 'hi');
+    assert.equal(a[0], '-p');
+    assert.equal(a[1], 'hi', 'the optional -p query must immediately follow the flag');
   });
 
   it('never adds yolo by default', () => {

@@ -103,7 +103,10 @@ function normalizeEvent(parsed) {
   }
   if (parsed.kind === 'result') {
     if (parsed.subtype === 'error') {
-      return { type: 'EngineError', error: parsed.error, sessionId: parsed.sessionId, raw: parsed };
+      const error = typeof parsed.error === 'string'
+        ? parsed.error
+        : (parsed.error && (parsed.error.message || parsed.error.detail)) || JSON.stringify(parsed.error || 'Command Code failed');
+      return { type: 'EngineError', error, sessionId: parsed.sessionId, raw: parsed };
     }
     return {
       type: parsed.subtype === 'max_turns' ? 'TaskFailed' : 'TaskCompleted',

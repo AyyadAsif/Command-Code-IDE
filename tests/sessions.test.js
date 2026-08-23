@@ -23,6 +23,13 @@ describe('sessions', () => {
     assert.equal(summarizeEntry(p.entries[0]).role, 'user');
   });
 
+  it('reads current message-wrapped transcript entries', () => {
+    const user = summarizeEntry({ type: 'message', message: { role: 'user', content: [{ type: 'text', text: 'wrapped hello' }] } });
+    const assistant = summarizeEntry({ type: 'message', message: { role: 'assistant', content: [{ type: 'text', text: 'wrapped reply' }] } });
+    assert.deepEqual({ role: user.role, text: user.text }, { role: 'user', text: 'wrapped hello' });
+    assert.deepEqual({ role: assistant.role, text: assistant.text }, { role: 'assistant', text: 'wrapped reply' });
+  });
+
   it('lists sessions for matching cwd only', () => {
     const home = fs.mkdtempSync(path.join(os.tmpdir(), 'cchome-'));
     const proj = path.join(home, 'projects', 'slug');

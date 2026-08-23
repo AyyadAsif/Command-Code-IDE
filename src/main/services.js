@@ -18,8 +18,11 @@ function createServices() {
   let state = store.load();
   adapter.allowYolo = !!state.engine.allowYolo;
 
+  const cachedWorkspace = state.lastWorkspace && fs.existsSync(state.lastWorkspace)
+    ? path.resolve(state.lastWorkspace)
+    : null;
   const runtime = {
-    workspace: state.lastWorkspace || null,
+    workspace: cachedWorkspace,
     sessions: [],
     activeSessionId: state.lastSessionId || null,
     models: [],
@@ -81,6 +84,12 @@ function createServices() {
     store.touchRecent(state, runtime.workspace);
     persist();
     refreshSessions();
+    // A cached session is only meaningful in the workspace that owns it.
+    // Never pass a stale id to `cmdc --resume` after switching projects.
+    if (runtime.activeSessionId && !runtime.sessions.some((s) => s.id === runtime.activeSessionId)) {
+      runtime.activeSessionId = null;
+      persist();
+    }
     startWatch();
     runtime.engineStatus = adapter.bin ? 'ready' : 'missing';
     return { workspace: runtime.workspace };
@@ -122,6 +131,7 @@ function createServices() {
 
   function composeAndSend({ text, mentions, activeFile, selection, includeActive, includeSelection, sessionId, fork, model, permissionMode }) {
     if (!runtime.workspace) throw new Error('Open a folder first');
+    if (!adapter.bin) throw new Error('Command Code is not available. Install cmdc or choose its path in Settings.');
     if (runtime.currentRun) throw new Error('Command Code is already working. Stop it first.');
 
     const mapped = mapSlashToEngine(text, { permissionMode });
@@ -192,7 +202,13 @@ function createServices() {
           code: info.code,
           mapped: info.mapped,
           sessionId: (info.result && info.result.sessionId) || runtime.activeSessionId,
-          result: info.result
+          result: info.result,
+          // Surface Command Code's real diagnostic instead of only "exit code 1".
+          error: info.result && info.result.error
+            ? (typeof info.result.error === 'string'
+                ? info.result.error
+                : info.result.error.message || info.result.error.detail || JSON.stringify(info.result.error))
+            : String(info.stderr || '').trim().split(/\r?\n/).filter(Boolean).slice(-3).join('\n')
         });
         runtime.broadcast('engine:status', { status: runtime.engineStatus });
       }
