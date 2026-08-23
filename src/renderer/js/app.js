@@ -7,6 +7,11 @@
     git: { files: [] },
     sessions: [],
     models: [],
+    selectedModel: '',
+    modelsExpanded: false,
+    expandedDirs: new Set(),
+    treeInitialized: false,
+    markdownPreview: false,
     openTabs: [],
     activeTab: null,
     messages: [],
@@ -70,6 +75,7 @@
 
     const det = await API.invoke('engine:detect');
     paintSetup(det);
+    state.engineStatus = det.status || (det.ok ? 'ready' : 'missing');
     if (state.workspace && det.ok) {
       hideWelcome();
       await loadWorkspace(state.workspace);
@@ -123,6 +129,11 @@
     if (typeof folder === 'object' && folder.path) folder = folder.path;
     await API.invoke('workspace:open', { path: folder });
     state.workspace = folder;
+    state.treeInitialized = false;
+    state.expandedDirs.clear();
+    window._sessionId = null;
+    state.messages = [];
+    renderMessages();
     hideWelcome();
     await loadWorkspace(folder);
   }
@@ -132,11 +143,22 @@
     await Promise.all([refreshTree(), refreshGit(), refreshSessions(), refreshModels(), refreshSlash()]);
     const app = await API.invoke('app:state');
     state.settings = app.settings;
-    if (app.activeSessionId) await openSession(app.activeSessionId);
+    if (app.activeSessionId && state.sessions.some((s) => s.id === app.activeSessionId)) {
+      await openSession(app.activeSessionId);
+    } else {
+      window._sessionId = null;
+      renderSessions();
+    }
   }
 
   async function refreshTree() {
     state.tree = await API.invoke('workspace:tree');
+    if (!state.treeInitialized) {
+      // Start with the project's top-level folders open and nested folders
+      // collapsed, like a normal IDE explorer.
+      state.tree.filter((x) => x.type === 'dir' && !x.rel.includes('/')).forEach((x) => state.expandedDirs.add(x.rel));
+      state.treeInitialized = true;
+    }
     renderTree();
   }
   async function refreshGit() {
@@ -150,10 +172,26 @@
   }
   async function refreshModels() {
     state.models = await API.invoke('engine:models');
-    const sel = $('modelSelect');
-    const cur = sel.value;
-    sel.innerHTML = `<option value="">Default model</option>` + state.models.map((m) => `<option value="${MD.escapeHtml(m.id)}">${MD.escapeHtml(m.id)}</option>`).join('');
-    if (cur) sel.value = cur;
+    renderModelMenu();
+  }
+
+  function renderModelMenu() {
+    const menu = $('modelMenu');
+    const shown = state.modelsExpanded ? state.models : state.models.slice(0, 5);
+    const selected = state.models.find((m) => m.id === state.selectedModel);
+    $('modelLabel').textContent = selected ? (selected.label || selected.id) : 'Default model';
+    menu.innerHTML = `<button class="model-option ${!state.selectedModel ? 'selected' : ''}" data-model=""><span>Default model</span><small>Command Code preference</small></button>` +
+      shown.map((m) => `<button class="model-option ${m.id === state.selectedModel ? 'selected' : ''}" data-model="${encodeURIComponent(m.id)}"><span>${MD.escapeHtml(m.label || m.id)}</span><small>${MD.escapeHtml(m.id)}</small></button>`).join('') +
+      (!state.modelsExpanded && state.models.length > 5 ? `<button class="model-more" data-more="1">More models… <span>${state.models.length - 5}</span></button>` : '') +
+      (state.modelsExpanded && state.models.length > 5 ? `<button class="model-more" data-more="1">Show top models</button>` : '') +
+      (!state.models.length ? `<div class="model-empty">No models returned by cmdc --list-models</div>` : '');
+    menu.querySelectorAll('[data-model]').forEach((n) => n.onclick = () => {
+      state.selectedModel = decodeURIComponent(n.dataset.model || '');
+      menu.classList.add('hidden');
+      renderModelMenu();
+    });
+    const more = menu.querySelector('[data-more]');
+    if (more) more.onclick = () => { state.modelsExpanded = !state.modelsExpanded; renderModelMenu(); menu.classList.remove('hidden'); };
   }
   async function refreshSlash() {
     state.slash = await API.invoke('slash:list');
@@ -164,21 +202,43 @@
     return f ? f.status : null;
   }
 
+  function fileIcon(name) {
+    const ext = (name.split('.').pop() || '').toLowerCase();
+    if (['js', 'jsx', 'mjs'].includes(ext)) return '<span class="fi js">JS</span>';
+    if (['ts', 'tsx'].includes(ext)) return '<span class="fi ts">TS</span>';
+    if (ext === 'md') return '<span class="fi md">M</span>';
+    if (['json', 'yml', 'yaml'].includes(ext)) return '<span class="fi cfg">{}</span>';
+    if (['cpp', 'cc', 'c', 'h', 'hpp'].includes(ext)) return '<span class="fi cpp">C</span>';
+    return '<span class="fi">·</span>';
+  }
+
   function renderTree() {
     const el = $('tree');
     const gitClass = { modified: 'git-m', added: 'git-a', deleted: 'git-d', untracked: 'git-u', renamed: 'git-m' };
-    el.innerHTML = state.tree.map((item) => {
+    const visible = state.tree.filter((item) => {
+      const parts = item.rel.split('/');
+      for (let i = 1; i < parts.length; i++) {
+        if (!state.expandedDirs.has(parts.slice(0, i).join('/'))) return false;
+      }
+      return true;
+    });
+    el.innerHTML = visible.map((item) => {
       const depth = item.rel.split('/').length - 1;
       const gs = item.type === 'file' ? gitStatusFor(item.rel) : null;
-      const ico = item.type === 'dir' ? '▸' : '·';
+      const open = item.type === 'dir' && state.expandedDirs.has(item.rel);
+      const ico = item.type === 'dir' ? (open ? '⌄' : '›') : fileIcon(item.name);
       const active = state.activeTab === item.path ? 'active' : '';
-      return `<div class="item ${active} ${gs ? gitClass[gs] : ''}" style="--d:${depth}" data-path="${encodeURIComponent(item.path)}" data-rel="${encodeURIComponent(item.rel)}" data-type="${item.type}">
-        <span class="ico">${ico}</span><span>${MD.escapeHtml(item.name)}</span>
+      return `<div class="item ${active} ${gs ? gitClass[gs] : ''}" style="--d:${depth}" data-path="${encodeURIComponent(item.path)}" data-rel="${encodeURIComponent(item.rel)}" data-type="${item.type}" draggable="${item.type === 'file'}">
+        <span class="ico ${item.type}">${ico}</span><span class="item-name">${MD.escapeHtml(item.name)}</span>
       </div>`;
     }).join('');
     el.querySelectorAll('.item').forEach((n) => {
       n.onclick = () => {
-        if (n.dataset.type === 'file') openEditor(decodeURIComponent(n.dataset.path), decodeURIComponent(n.dataset.rel));
+        const rel = decodeURIComponent(n.dataset.rel);
+        if (n.dataset.type === 'dir') {
+          if (state.expandedDirs.has(rel)) state.expandedDirs.delete(rel); else state.expandedDirs.add(rel);
+          renderTree();
+        } else openEditor(decodeURIComponent(n.dataset.path), rel);
       };
       n.oncontextmenu = (e) => { e.preventDefault(); fileMenu(e, n); };
     });
@@ -266,15 +326,29 @@
     $('diffView').classList.add('hidden');
     $('editorEmpty').classList.add('hidden');
     Editor.openFile(path, res.text, state.settings.theme);
+    const isMarkdown = /\.md$/i.test(rel || path);
+    $('mdPreviewBtn').classList.toggle('hidden', !isMarkdown);
+    if (!isMarkdown) state.markdownPreview = false;
+    paintMarkdownPreview();
     renderTabs();
     renderTree();
     renderChips();
   }
 
+  function paintMarkdownPreview() {
+    const preview = $('markdownPreview');
+    const active = state.openTabs.find((t) => t.path === state.activeTab);
+    const show = !!(state.markdownPreview && active && /\.md$/i.test(active.rel));
+    preview.classList.toggle('hidden', !show);
+    $('editor').classList.toggle('hidden', show);
+    $('mdPreviewBtn').textContent = show ? 'Edit' : 'Preview';
+    if (show) preview.innerHTML = `<div class="md-document">${MD.render(Editor.getValue())}</div>`;
+  }
+
   function renderTabs() {
     $('tabs').innerHTML = state.openTabs.map((t) => {
       const dirty = Editor.isDirty(t.path);
-      return `<div class="tab ${t.path === state.activeTab ? 'active' : ''} ${dirty ? 'dirty' : ''}" data-path="${encodeURIComponent(t.path)}">
+      return `<div draggable="true" class="tab ${t.path === state.activeTab ? 'active' : ''} ${dirty ? 'dirty' : ''}" data-path="${encodeURIComponent(t.path)}">
         <span>${MD.escapeHtml(t.rel.split(/[\\/]/).pop())}</span>
         <span class="x" data-close="1">×</span>
       </div>`;
@@ -296,6 +370,22 @@
         }
         const t = state.openTabs.find((x) => x.path === p);
         openEditor(t.path, t.rel);
+      };
+      n.ondragstart = (e) => e.dataTransfer.setData('application/x-cc-tab', decodeURIComponent(n.dataset.path));
+      n.ondragover = (e) => { e.preventDefault(); n.classList.add('drag-over'); };
+      n.ondragleave = () => n.classList.remove('drag-over');
+      n.ondrop = (e) => {
+        e.preventDefault();
+        n.classList.remove('drag-over');
+        const from = e.dataTransfer.getData('application/x-cc-tab');
+        const to = decodeURIComponent(n.dataset.path);
+        if (!from || from === to) return;
+        const fromIndex = state.openTabs.findIndex((x) => x.path === from);
+        const toIndex = state.openTabs.findIndex((x) => x.path === to);
+        if (fromIndex < 0 || toIndex < 0) return;
+        const moved = state.openTabs.splice(fromIndex, 1)[0];
+        state.openTabs.splice(toIndex, 0, moved);
+        renderTabs();
       };
     });
   }
@@ -365,6 +455,10 @@
 
   function renderMessages() {
     const el = $('messages');
+    if (!state.messages.length) {
+      el.innerHTML = `<div class="chat-empty"><div class="chat-mark">⌁</div><strong>Build with Command Code</strong><span>Ask a question, make a change, or resume a conversation.</span></div>`;
+      return;
+    }
     el.innerHTML = state.messages.map((m) => {
       if (m.role === 'user') {
         return `<div class="msg user"><div class="who">You</div><div class="bubble">${MD.render(m.text)}${m.hint ? `<div class="ctx-hint">${MD.escapeHtml(m.hint)}</div>` : ''}</div></div>`;
@@ -457,7 +551,8 @@
     const a = currentAssistant();
     if (info.result && info.result.finalText) a.text = info.result.finalText;
     if (info.mapped && info.mapped.id !== 'ok' && info.mapped.id !== 'cancelled') {
-      a.text += (a.text ? '\n\n' : '') + info.mapped.message;
+      const diagnostic = info.error || info.mapped.message;
+      a.text += (a.text ? '\n\n' : '') + `Command Code reported an error:\n\n${diagnostic}`;
     }
     if (info.sessionId) window._sessionId = info.sessionId;
     $('busyText').textContent = '';
@@ -504,7 +599,7 @@
       includeActive: !!(state.includeActive && tab),
       includeSelection: !!(state.includeSelection && sel),
       sessionId: window._sessionId || null,
-      model: $('modelSelect').value || undefined,
+      model: state.selectedModel || undefined,
       permissionMode: state.settings.engine.permissionMode
     };
     const hintParts = [];
@@ -517,9 +612,17 @@
     persistDraft('');
     renderChips();
     renderMessages();
+    // Mark busy before IPC so a fast CLI failure/result cannot race ahead of
+    // the invoke response and leave the composer stuck in a working state.
+    state.busy = true;
+    state.engineStatus = 'working';
+    paintEngine();
     try {
       const res = await API.invoke('agent:send', payload);
       if (res.kind === 'new-session') {
+        state.busy = false;
+        state.engineStatus = 'ready';
+        paintEngine();
         window._sessionId = null;
         state.messages = [];
         renderMessages();
@@ -527,6 +630,9 @@
         return;
       }
       if (res.kind === 'set-mode') {
+        state.busy = false;
+        state.engineStatus = 'ready';
+        paintEngine();
         state.settings.engine.permissionMode = res.mode;
         $('modeBtn').textContent = res.mode;
         $('permText').textContent = 'mode ' + res.mode;
@@ -536,16 +642,19 @@
         return;
       }
       if (res.kind === 'set-model') {
-        $('modelSelect').value = res.model;
+        state.busy = false;
+        state.engineStatus = 'ready';
+        paintEngine();
+        state.selectedModel = res.model; renderModelMenu();
         state.messages.pop();
         state.messages.pop();
         renderMessages();
         return;
       }
-      state.busy = true;
-      state.engineStatus = 'working';
-      paintEngine();
     } catch (err) {
+      state.busy = false;
+      state.engineStatus = 'error';
+      paintEngine();
       currentAssistant().text = err.message;
       renderMessages();
     }
@@ -574,7 +683,7 @@
       text,
       sessionId: window._sessionId,
       fork: true,
-      model: $('modelSelect').value || undefined,
+      model: state.selectedModel || undefined,
       permissionMode: state.settings.engine.permissionMode,
       mentions: [],
       includeActive: false,
@@ -599,7 +708,18 @@
 
   function bind() {
     $('openFolderBtn').onclick = () => openFolder();
-    $('refreshEngineBtn').onclick = async () => paintSetup(await API.invoke('engine:detect'));
+    $('refreshEngineBtn').onclick = async () => {
+      const d = await API.invoke('engine:detect');
+      paintSetup(d);
+      state.engineStatus = d.status || (d.ok ? 'ready' : 'missing');
+      paintEngine();
+    };
+    $('modelSelect').onclick = (e) => { e.stopPropagation(); $('modelMenu').classList.toggle('hidden'); };
+    $('mdPreviewBtn').onclick = () => { state.markdownPreview = !state.markdownPreview; paintMarkdownPreview(); };
+    $('toggleSessions').onclick = () => {
+      $('sessionArea').classList.toggle('hidden');
+      $('toggleSessions').textContent = $('sessionArea').classList.contains('hidden') ? '⌄' : '⌃';
+    };
     $('sendBtn').onclick = send;
     $('stopBtn').onclick = () => API.invoke('agent:cancel');
     $('newChatBtn').onclick = newChat;
@@ -638,6 +758,7 @@
     });
     document.addEventListener('click', (e) => {
       if (!e.target.closest('#ctx')) $('ctx').classList.add('hidden');
+      if (!e.target.closest('#modelPicker')) $('modelMenu').classList.add('hidden');
     });
     document.addEventListener('keydown', (e) => {
       if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'p') { e.preventDefault(); openPalette(); }

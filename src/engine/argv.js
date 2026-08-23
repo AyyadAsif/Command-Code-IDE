@@ -3,7 +3,12 @@
 const { PERMISSION_MODES } = require('../shared/constants');
 
 function buildPrintArgs(options = {}) {
-  const args = ['-p', '--output-format', 'json', '--skip-onboarding'];
+  // `-p` has an optional value, so the query MUST immediately follow it.
+  // Putting flags between `-p` and the query makes Command Code believe no
+  // query was supplied (and it exits because our child stdin is not a TTY).
+  // This was the reason installed builds connected to cmdc but never replied.
+  const prompt = options.prompt == null ? '' : String(options.prompt);
+  const args = ['-p', prompt, '--output-format', 'json', '--skip-onboarding'];
   if (options.trust !== false) args.push('--trust');
   if (options.verbose) args.push('--verbose');
   if (options.name) args.push('-n', String(options.name));
@@ -46,8 +51,6 @@ function buildPrintArgs(options = {}) {
     args.push('--session', String(options.sessionPath));
   }
 
-  const prompt = options.prompt == null ? '' : String(options.prompt);
-  args.push(prompt);
   return args;
 }
 

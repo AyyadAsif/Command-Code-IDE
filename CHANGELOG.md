@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased — 2026-08-23
+
+- Fixed the installed app's Command Code invocation: the prompt now immediately follows the CLI's optional `-p` flag, so `cmdc` receives the message instead of exiting with “no query”.
+- Fixed loading current Command Code transcripts whose chat turns use wrapped `message.role` / `message.content` records.
+- Prevented a cached session from another project being resumed after switching folders and now shows the real CLI diagnostic when a run fails.
+- Added a collapsible IDE file tree, draggable editor tabs, Markdown preview, a top-five model picker with “More models”, collapsible conversation history, and a comprehensive visual polish pass.
+
 ## 1.0.0 — 2026-08-20
 
 - First release of Command Code IDE.

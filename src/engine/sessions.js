@@ -60,25 +60,30 @@ function parseTranscript(filePath, { maxEntries = 4000 } = {}) {
 
 function summarizeEntry(obj) {
   if (!obj || typeof obj !== 'object') return null;
-  const role = obj.role || obj.type || obj.kind;
-  if (role === 'user' || obj.type === 'user' || obj.kind === 'user') {
-    const text = obj.text || obj.content || obj.message || extractText(obj);
-    return { role: 'user', text: String(text || ''), rawType: obj.type || role };
+
+  // Current Command Code transcripts wrap chat turns in a `message` entry:
+  // { type: "message", message: { role, content } }. Older releases stored
+  // role/content directly. Normalize both without depending on private fields.
+  const message = obj.message && typeof obj.message === 'object' ? obj.message : obj;
+  const role = message.role || obj.role || obj.type || obj.kind;
+  if (role === 'user') {
+    return { role: 'user', text: String(extractText(message) || ''), rawType: obj.type || role };
   }
-  if (role === 'assistant' || obj.type === 'assistant' || obj.kind === 'assistant') {
-    const text = obj.text || obj.content || obj.message || extractText(obj);
-    return { role: 'assistant', text: String(text || ''), rawType: obj.type || role };
+  if (role === 'assistant') {
+    return { role: 'assistant', text: String(extractText(message) || ''), rawType: obj.type || role };
   }
-  if (obj.toolName || obj.tool_name || obj.type === 'tool' || obj.kind === 'tool') {
+
+  const tool = message.toolName || message.tool_name || obj.toolName || obj.tool_name;
+  if (tool || role === 'tool' || role === 'tool_result') {
     return {
       role: 'tool',
-      toolName: obj.toolName || obj.tool_name || 'tool',
-      description: obj.description || obj.summary || '',
-      rawType: obj.type || 'tool'
+      toolName: tool || 'tool',
+      description: message.description || obj.description || message.summary || obj.summary || '',
+      rawType: obj.type || role || 'tool'
     };
   }
-  const text = extractText(obj);
-  if (text) return { role: obj.role || 'entry', text: String(text), rawType: obj.type || 'entry' };
+  const text = extractText(message) || extractText(obj);
+  if (text) return { role: 'entry', text: String(text), rawType: obj.type || 'entry' };
   return { role: 'entry', text: '', rawType: obj.type || 'entry', opaque: true };
 }
 
